@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Space</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <style>
+    :root {
+      --yellow: #ffd739;
+      --yellow-dark: #f0b800;
+      --yellow-soft: #fff6c7;
+      --white: #ffffff;
+      --ink: #332b12;
+      --muted: #776d4d;
+      --line: #eadf9f;
+      --danger: #d94a3a;
+      --shadow: 0 10px 0 #dfb800, 0 16px 28px rgba(81, 65, 12, 0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255, 247, 196, 0.95), transparent 34rem),
+        linear-gradient(135deg, #fffdf0 0%, #fff7c9 45%, #ffffff 100%);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .app {
+      width: min(1080px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 44px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 30px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .mascot {
+      display: grid;
+      place-items: center;
+      width: 54px;
+      height: 54px;
+      border: 3px solid var(--ink);
+      border-radius: 16px;
+      background: var(--yellow);
+      box-shadow: 0 6px 0 var(--yellow-dark);
+      font-size: 28px;
+      font-weight: 900;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.8rem, 4vw, 3rem);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .pill {
+      flex: 0 0 auto;
+      border: 2px solid var(--line);
+      border-radius: 999px;
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.7);
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 380px) 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .panel,
+    .empty-state,
+    .link-card {
+      border: 3px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.86);
+    }
+
+    .panel {
+      padding: 20px;
+      box-shadow: 0 12px 30px rgba(90, 76, 23, 0.1);
+      position: sticky;
+      top: 18px;
+    }
+
+    .panel h2,
+    .links-title {
+      margin: 0 0 16px;
+      font-size: 1.18rem;
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 7px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    input {
+      width: 100%;
+      min-height: 48px;
+      border: 3px solid var(--line);
+      border-radius: 8px;
+      padding: 0 13px;
+      outline: none;
+      background: var(--white);
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 96px;
+      border: 3px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 13px;
+      outline: none;
+      resize: vertical;
+      background: var(--white);
+      color: var(--ink);
+      font: inherit;
+      font-weight: 800;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: var(--yellow-dark);
+      box-shadow: 0 0 0 4px rgba(255, 215, 57, 0.24);
+    }
+
+    .form-actions {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .btn {
+      min-height: 48px;
+      border: 0;
+      border-radius: 8px;
+      padding: 0 16px;
+      cursor: pointer;
+      font-weight: 900;
+      color: var(--ink);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+    }
+
+    .btn:active {
+      transform: translateY(4px);
+      box-shadow: none;
+    }
+
+    .btn-primary {
+      background: var(--yellow);
+      box-shadow: 0 6px 0 var(--yellow-dark);
+    }
+
+    .btn-light {
+      border: 3px solid var(--line);
+      background: var(--white);
+      color: var(--muted);
+    }
+
+    .btn-danger {
+      background: #fff2ef;
+      color: var(--danger);
+      border: 3px solid #f0beb6;
+    }
+
+    .links-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .count {
+      color: var(--muted);
+      font-weight: 900;
+    }
+
+    .links-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .content-column {
+      display: grid;
+      gap: 18px;
+    }
+
+    .empty-state {
+      padding: 32px;
+      text-align: center;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .empty-icon {
+      display: grid;
+      place-items: center;
+      width: 70px;
+      height: 70px;
+      margin: 0 auto 16px;
+      border-radius: 20px;
+      border: 3px solid var(--yellow-dark);
+      background: var(--yellow-soft);
+      color: var(--ink);
+      font-size: 34px;
+      font-weight: 900;
+    }
+
+    .link-card {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding: 16px;
+    }
+
+    .link-main {
+      min-width: 0;
+    }
+
+    .link-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 58px;
+      border-radius: 8px;
+      padding: 0 18px;
+      background: var(--yellow);
+      box-shadow: var(--shadow);
+      color: var(--ink);
+      font-size: 1.06rem;
+      font-weight: 900;
+      text-decoration: none;
+      overflow-wrap: anywhere;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+      border: 0;
+      cursor: pointer;
+    }
+
+    .link-button:hover,
+    .btn:hover {
+      filter: brightness(1.03);
+    }
+
+    .link-button:active {
+      transform: translateY(6px);
+      box-shadow: 0 4px 0 #dfb800, 0 10px 18px rgba(81, 65, 12, 0.14);
+    }
+
+    .url {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      align-self: stretch;
+      align-items: start;
+    }
+
+    .icon-btn {
+      display: grid;
+      place-items: center;
+      width: 46px;
+      height: 46px;
+      border-radius: 8px;
+      font-size: 1.1rem;
+    }
+
+    .hint {
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .viewer-panel {
+      border: 3px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 16px;
+      box-shadow: 0 12px 30px rgba(90, 76, 23, 0.1);
+    }
+
+    .viewer-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .viewer-title {
+      margin: 0;
+      font-size: 1.08rem;
+      overflow-wrap: anywhere;
+    }
+
+    .viewer-actions {
+      display: flex;
+      gap: 8px;
+      flex: 0 0 auto;
+    }
+
+    .zoom-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .zoom-level {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 64px;
+      min-height: 42px;
+      border: 3px solid var(--line);
+      border-radius: 8px;
+      background: var(--yellow-soft);
+      color: var(--ink);
+      font-size: 0.9rem;
+      font-weight: 900;
+    }
+
+    .viewer-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      border: 3px solid var(--line);
+      border-radius: 8px;
+      padding: 0 12px;
+      background: var(--white);
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 900;
+      text-decoration: none;
+    }
+
+    .viewer-screen {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border: 3px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+      overflow: auto;
+      --viewer-zoom: 1;
+    }
+
+    .viewer-frame {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-width: calc(100% / var(--viewer-zoom));
+      min-height: calc(100% / var(--viewer-zoom));
+      border: 0;
+      background: var(--white);
+      transform: scale(var(--viewer-zoom));
+      transform-origin: top left;
+    }
+
+    .command-panel {
+      border: 3px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 16px;
+    }
+
+    .command-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .command-head h2 {
+      margin: 0;
+      font-size: 1.08rem;
+    }
+
+    .status-dot {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      border: 2px solid var(--line);
+      border-radius: 999px;
+      padding: 0 10px;
+      background: var(--yellow-soft);
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 900;
+    }
+
+    .command-actions {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .command-log {
+      min-height: 42px;
+      margin-top: 12px;
+      border: 2px dashed var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      color: var(--muted);
+      background: rgba(255, 246, 199, 0.4);
+      font-size: 0.9rem;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 820px) {
+      .topbar,
+      .links-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .panel {
+        position: static;
+      }
+
+      .pill {
+        width: 100%;
+        text-align: center;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .app {
+        width: min(100% - 20px, 1080px);
+        padding-top: 18px;
+      }
+
+      .brand {
+        align-items: flex-start;
+      }
+
+      .mascot {
+        width: 48px;
+        height: 48px;
+      }
+
+      .link-card {
+        grid-template-columns: 1fr;
+      }
+
+      .card-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .icon-btn {
+        width: 100%;
+      }
+
+      .viewer-toolbar,
+      .viewer-actions,
+      .zoom-controls {
+        align-items: stretch;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mascot" aria-hidden="true">✓</div>
+        <div>
+          <h1>Space</h1>
+          <p class="subtitle">Un tablero amarillo, simple y editable para tus accesos rápidos.</p>
+        </div>
+      </div>
+      <div class="pill" id="savedCount">0 enlaces guardados</div>
+    </header>
+
+    <section class="layout">
+      <form class="panel" id="linkForm">
+        <h2 id="formTitle">Agregar enlace</h2>
+
+        <label for="titleInput">Título del botón</label>
+        <input id="titleInput" type="text" placeholder="Ej: YouTube, Drive, Curso..." autocomplete="off" required />
+
+        <label for="urlInput">Enlace</label>
+        <input id="urlInput" type="url" placeholder="https://ejemplo.com" autocomplete="off" required />
+
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit" id="submitButton">Guardar</button>
+          <button class="btn btn-light" type="button" id="cancelButton" hidden>Cancelar</button>
+        </div>
+
+        <p class="hint">
+          Los enlaces se guardan en este navegador usando almacenamiento local. Puedes cambiar títulos, borrar accesos o abrirlos desde los botones.
+        </p>
+      </form>
+
+      <section class="content-column">
+        <div class="links-header">
+          <h2 class="links-title">Tus botones</h2>
+          <span class="count" id="listCount">Sin enlaces todavía</span>
+        </div>
+        <div class="links-grid" id="linksList"></div>
+        <section class="viewer-panel" aria-label="Visor interno">
+          <div class="viewer-toolbar">
+            <h2 class="viewer-title" id="viewerTitle">Visor interno</h2>
+            <div class="viewer-actions">
+              <div class="zoom-controls" aria-label="Controles de zoom">
+                <button class="btn btn-light icon-btn" type="button" id="zoomOut" title="Achicar">-</button>
+                <span class="zoom-level" id="zoomLevel">100%</span>
+                <button class="btn btn-light icon-btn" type="button" id="zoomIn" title="Agrandar">+</button>
+                <button class="btn btn-light" type="button" id="zoomReset">100%</button>
+              </div>
+              <a class="viewer-link" id="openOutside" href="#" target="_blank" rel="noopener noreferrer" hidden>Abrir afuera</a>
+              <button class="btn btn-light" type="button" id="clearViewer">Limpiar</button>
+            </div>
+          </div>
+          <div class="viewer-screen" id="viewerScreen">
+            <iframe
+              class="viewer-frame"
+              id="linkViewer"
+              title="Contenido del enlace seleccionado"
+              sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+              referrerpolicy="no-referrer"
+            ></iframe>
+          </div>
+          <p class="hint">
+            Si una pagina no aparece aqui, normalmente es porque ese sitio bloquea cargarse dentro de otros archivos. En ese caso puedes usar Abrir afuera.
+          </p>
+        </section>
+        <section class="command-panel" aria-label="Comandos de Genius">
+          <div class="command-head">
+            <h2>Control de Genius</h2>
+            <span class="status-dot" id="bridgeStatus">Firebase iniciando</span>
+          </div>
+          <label for="commandInput">Orden para la pestaña activa</label>
+          <textarea id="commandInput" placeholder="Ej: Genius, revisa este proyecto. / Arboles, crea un arbol llamado Ideas."></textarea>
+          <div class="command-actions">
+            <button class="btn btn-primary" type="button" id="sendCommandButton">Enviar orden</button>
+            <button class="btn btn-light" type="button" id="pingButton">Ping</button>
+          </div>
+          <div class="command-log" id="commandLog">Carga Genius o Arboles en el visor y envia una orden.</div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = "yellow-link-board";
+    const SPACE_CLIENT_ID = "space-" + Math.random().toString(36).slice(2);
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyDRlVs6JAkyt5Op-mUGaLXbI95fwewH_n4",
+      authDomain: "imapersonal-79a48.firebaseapp.com",
+      projectId: "imapersonal-79a48",
+      storageBucket: "imapersonal-79a48.firebasestorage.app",
+      messagingSenderId: "226302507123",
+      appId: "1:226302507123:web:bac73982b2cab122aa5206",
+      measurementId: "G-8H4BHJVGBK"
+    };
+    const DEFAULT_LINKS = [
+      { id: "project-genius", title: "Genius", url: "genius.html" },
+      { id: "project-arboles", title: "Arboles binarios", url: "arboles-binarios.html" }
+    ];
+    const form = document.getElementById("linkForm");
+    const formTitle = document.getElementById("formTitle");
+    const titleInput = document.getElementById("titleInput");
+    const urlInput = document.getElementById("urlInput");
+    const submitButton = document.getElementById("submitButton");
+    const cancelButton = document.getElementById("cancelButton");
+    const linksList = document.getElementById("linksList");
+    const savedCount = document.getElementById("savedCount");
+    const listCount = document.getElementById("listCount");
+    const viewerScreen = document.getElementById("viewerScreen");
+    const linkViewer = document.getElementById("linkViewer");
+    const viewerTitle = document.getElementById("viewerTitle");
+    const openOutside = document.getElementById("openOutside");
+    const clearViewer = document.getElementById("clearViewer");
+    const zoomOut = document.getElementById("zoomOut");
+    const zoomIn = document.getElementById("zoomIn");
+    const zoomReset = document.getElementById("zoomReset");
+    const zoomLevel = document.getElementById("zoomLevel");
+    const bridgeStatus = document.getElementById("bridgeStatus");
+    const commandInput = document.getElementById("commandInput");
+    const sendCommandButton = document.getElementById("sendCommandButton");
+    const pingButton = document.getElementById("pingButton");
+    const commandLog = document.getElementById("commandLog");
+
+    let links = loadLinks();
+    let editingId = null;
+    let activeLinkId = null;
+    let activeLink = null;
+    let viewerZoom = 1;
+    let spaceDb = null;
+
+    function loadLinks() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) {
+          return DEFAULT_LINKS;
+        }
+        return JSON.parse(saved) || [];
+      } catch (error) {
+        return DEFAULT_LINKS;
+      }
+    }
+
+    function saveLinks() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+    }
+
+    function initFirebaseBridge() {
+      try {
+        if (!window.firebase) {
+          bridgeStatus.textContent = "Firebase no cargado";
+          return;
+        }
+        const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FIREBASE_CONFIG);
+        spaceDb = firebase.firestore(app);
+        bridgeStatus.textContent = "Firebase conectado";
+        spaceDb.collection("space_events")
+          .orderBy("createdAt", "desc")
+          .limit(1)
+          .onSnapshot((snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+              if (change.type !== "added") {
+                return;
+              }
+              const event = change.doc.data();
+              if (event.sourceId === SPACE_CLIENT_ID) {
+                return;
+              }
+              writeCommandLog(`${event.source || "Proyecto"}: ${event.message || event.type || "evento recibido"}`);
+            });
+          }, () => {
+            bridgeStatus.textContent = "Firebase sin permisos";
+          });
+      } catch (error) {
+        bridgeStatus.textContent = "Firebase error";
+        writeCommandLog("Firebase no pudo iniciar: " + error.message);
+      }
+    }
+
+    function writeCommandLog(message) {
+      commandLog.textContent = message;
+    }
+
+    function getProjectTarget(link) {
+      const text = `${link?.id || ""} ${link?.title || ""} ${link?.url || ""}`.toLowerCase();
+      if (text.includes("genius")) {
+        return "project-genius";
+      }
+      if (text.includes("arbol") || text.includes("árbol")) {
+        return "project-arboles";
+      }
+      return link?.id || "project-unknown";
+    }
+
+    function normalizeUrl(url) {
+      const cleanUrl = url.trim();
+      if (/^https?:\/\//i.test(cleanUrl)) {
+        return cleanUrl;
+      }
+      return `https://${cleanUrl}`;
+    }
+
+    function resetForm() {
+      editingId = null;
+      form.reset();
+      formTitle.textContent = "Agregar enlace";
+      submitButton.textContent = "Guardar";
+      cancelButton.hidden = true;
+      titleInput.focus();
+    }
+
+    function updateZoom() {
+      viewerScreen.style.setProperty("--viewer-zoom", viewerZoom);
+      zoomLevel.textContent = `${Math.round(viewerZoom * 100)}%`;
+    }
+
+    function changeZoom(amount) {
+      viewerZoom = Math.min(2, Math.max(0.5, Number((viewerZoom + amount).toFixed(2))));
+      updateZoom();
+    }
+
+    function resetZoom() {
+      viewerZoom = 1;
+      updateZoom();
+    }
+
+    function resetViewer() {
+      activeLinkId = null;
+      activeLink = null;
+      viewerTitle.textContent = "Visor interno";
+      openOutside.hidden = true;
+      openOutside.href = "#";
+      linkViewer.removeAttribute("src");
+      linkViewer.srcdoc = `
+        <style>
+          body {
+            display: grid;
+            min-height: 100vh;
+            place-items: center;
+            margin: 0;
+            color: #776d4d;
+            background: #fffdf0;
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: 800;
+            text-align: center;
+          }
+          div { max-width: 26rem; padding: 2rem; }
+        </style>
+        <div>Selecciona un boton para cargar su contenido aqui.</div>
+      `;
+    }
+
+    function openInside(link) {
+      activeLinkId = link.id;
+      activeLink = link;
+      viewerTitle.textContent = link.title;
+      openOutside.href = link.url;
+      openOutside.hidden = false;
+      linkViewer.removeAttribute("srcdoc");
+      linkViewer.src = link.url;
+    }
+
+    async function sendSpaceCommand(commandText) {
+      const command = (commandText || "").trim();
+      if (!command) {
+        writeCommandLog("Escribe una orden antes de enviarla.");
+        return;
+      }
+      if (!activeLink) {
+        writeCommandLog("Primero abre Genius o un proyecto en el visor.");
+        return;
+      }
+
+      const payload = {
+        type: "space-command",
+        command,
+        targetId: getProjectTarget(activeLink),
+        linkId: activeLink.id,
+        targetTitle: activeLink.title,
+        targetUrl: activeLink.url,
+        source: "Space",
+        sourceId: SPACE_CLIENT_ID,
+        createdAt: Date.now()
+      };
+
+      linkViewer.contentWindow?.postMessage(payload, "*");
+      writeCommandLog(`Orden enviada a ${activeLink.title}: ${command}`);
+
+      if (spaceDb) {
+        try {
+          await spaceDb.collection("space_commands").add({
+            ...payload,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        } catch (error) {
+          writeCommandLog("Orden enviada al visor. Firebase no guardo el comando: " + error.message);
+        }
+      }
+    }
+
+    function renderLinks() {
+      const total = links.length;
+      savedCount.textContent = `${total} ${total === 1 ? "enlace guardado" : "enlaces guardados"}`;
+      listCount.textContent = total === 0 ? "Sin enlaces todavía" : `${total} disponible${total === 1 ? "" : "s"}`;
+
+      if (total === 0) {
+        linksList.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">+</div>
+            <p>Todavía no hay botones. Agrega un título y un enlace para crear el primero.</p>
+          </div>
+        `;
+        return;
+      }
+
+      linksList.innerHTML = links.map((link) => `
+        <article class="link-card">
+          <div class="link-main">
+            <button class="link-button" type="button" data-action="open" data-id="${link.id}">
+              ${escapeHtml(link.title)}
+            </button>
+            <p class="url">${escapeHtml(link.url)}</p>
+          </div>
+          <div class="card-actions">
+            <button class="btn btn-light icon-btn" type="button" data-action="edit" data-id="${link.id}" title="Editar">✎</button>
+            <button class="btn btn-danger icon-btn" type="button" data-action="delete" data-id="${link.id}" title="Eliminar">×</button>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+
+      const title = titleInput.value.trim();
+      const url = normalizeUrl(urlInput.value);
+
+      if (!title || !url) {
+        return;
+      }
+
+      if (editingId) {
+        links = links.map((link) => (
+          link.id === editingId ? { ...link, title, url } : link
+        ));
+        if (activeLinkId === editingId) {
+          openInside({ id: editingId, title, url });
+        }
+      } else {
+        links.unshift({
+          id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+          title,
+          url
+        });
+      }
+
+      saveLinks();
+      renderLinks();
+      resetForm();
+    });
+
+    cancelButton.addEventListener("click", resetForm);
+
+    linksList.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action]");
+      if (!button) {
+        return;
+      }
+
+      const id = button.dataset.id;
+      const action = button.dataset.action;
+      const selectedLink = links.find((link) => link.id === id);
+
+      if (!selectedLink) {
+        return;
+      }
+
+      if (action === "open") {
+        openInside(selectedLink);
+        return;
+      }
+
+      if (action === "delete") {
+        links = links.filter((link) => link.id !== id);
+        saveLinks();
+        renderLinks();
+        if (editingId === id) {
+          resetForm();
+        }
+        if (activeLinkId === id) {
+          resetViewer();
+        }
+        return;
+      }
+
+      editingId = id;
+      titleInput.value = selectedLink.title;
+      urlInput.value = selectedLink.url;
+      formTitle.textContent = "Editar enlace";
+      submitButton.textContent = "Actualizar";
+      cancelButton.hidden = false;
+      titleInput.focus();
+    });
+
+    clearViewer.addEventListener("click", resetViewer);
+    zoomOut.addEventListener("click", () => changeZoom(-0.1));
+    zoomIn.addEventListener("click", () => changeZoom(0.1));
+    zoomReset.addEventListener("click", resetZoom);
+    sendCommandButton.addEventListener("click", () => sendSpaceCommand(commandInput.value));
+    pingButton.addEventListener("click", () => sendSpaceCommand("ping"));
+    commandInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        sendSpaceCommand(commandInput.value);
+      }
+    });
+    window.addEventListener("message", (event) => {
+      const data = event.data || {};
+      if (data.type === "space-event" || data.type === "space-response") {
+        writeCommandLog(`${data.source || "Proyecto"}: ${data.message || "respuesta recibida"}`);
+      }
+    });
+
+    initFirebaseBridge();
+    updateZoom();
+    resetViewer();
+    renderLinks();
+  </script>
+</body>
+</html>
