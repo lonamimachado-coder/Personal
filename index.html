@@ -564,7 +564,10 @@
             display: flex;
             flex-wrap: wrap;
             gap: 0.5rem;
-            margin-top: 0.25rem;
+            margin-bottom: 0.6rem;
+        }
+        .message-bubble > .message-attachments:last-child {
+            margin-bottom: 0;
         }
 
         .msg-attachment-card {
@@ -597,7 +600,6 @@
             max-height: 250px;
             border-radius: 8px;
             border: 1px solid var(--border-color);
-            margin-top: 0.25rem;
             object-fit: cover;
             cursor: pointer;
             box-shadow: var(--shadow-sm);
@@ -1471,7 +1473,7 @@
                         <div class="starter-card-title" data-i18n="starter_organize_title">Organizar mi día</div>
                         <div class="starter-card-desc" data-i18n="starter_organize_desc">Planifica tus tareas y prioridades.</div>
                     </div>
-                    <div class="starter-card" data-prompt-key="starter_email" data-prompt="Escríbeme un correo profesional. Dime para qué es y lo redactamos juntos.">
+                    <div class="starter-card" data-prompt-key="starter_email" data-prompt="Ayúdame a escribir un correo profesional.">
                         <div class="starter-card-title" data-i18n="starter_email_title">Redactar un correo</div>
                         <div class="starter-card-desc" data-i18n="starter_email_desc">Correos formales, laborales o comerciales.</div>
                     </div>
@@ -2596,7 +2598,7 @@ Task: List ONLY genuinely NEW durable facts about the user worth remembering lon
                 starter_organize_prompt: "Ayúdame a organizar mis tareas pendientes del día. Puedo dictarte la lista.",
                 starter_email_title: "Redactar un correo",
                 starter_email_desc: "Correos formales, laborales o comerciales.",
-                starter_email_prompt: "Escríbeme un correo profesional. Dime para qué es y lo redactamos juntos.",
+                starter_email_prompt: "Ayúdame a escribir un correo profesional.",
                 chat_input_placeholder: "Pregunta a Vesper...",
                 attach_file_tooltip: "Adjuntar archivo (PDF, Word, TXT, Imágenes)",
                 send_tooltip: "Enviar mensaje",
@@ -2676,7 +2678,7 @@ Task: List ONLY genuinely NEW durable facts about the user worth remembering lon
                 starter_organize_prompt: "Ajude-me a organizar minhas tarefas pendentes do dia. Posso ditar a lista para você.",
                 starter_email_title: "Redigir um e-mail",
                 starter_email_desc: "E-mails formais, profissionais ou comerciais.",
-                starter_email_prompt: "Escreva um e-mail profissional para mim. Diga para que serve e vamos redigi-lo juntos.",
+                starter_email_prompt: "Ajude-me a escrever um e-mail profissional.",
                 chat_input_placeholder: "Pergunte à Vesper...",
                 attach_file_tooltip: "Anexar arquivo (PDF, Word, TXT, Imagens)",
                 send_tooltip: "Enviar mensagem",
@@ -2756,7 +2758,7 @@ Task: List ONLY genuinely NEW durable facts about the user worth remembering lon
                 starter_organize_prompt: "Help me organize my pending tasks for the day. I can dictate the list to you.",
                 starter_email_title: "Write an email",
                 starter_email_desc: "Formal, work, or business emails.",
-                starter_email_prompt: "Write a professional email for me. Tell me what it's for and we'll draft it together.",
+                starter_email_prompt: "Help me write a professional email.",
                 chat_input_placeholder: "Ask Vesper...",
                 attach_file_tooltip: "Attach file (PDF, Word, TXT, Images)",
                 send_tooltip: "Send message",
@@ -3712,8 +3714,7 @@ Task: List ONLY genuinely NEW durable facts about the user worth remembering lon
                 row.innerHTML = `
                     <div class="message-avatar">${avatarHtml}</div>
                     <div class="message-content-wrapper">
-                        <div class="message-bubble">${contentHtml}</div>
-                        ${attachmentsHtml}
+                        <div class="message-bubble">${attachmentsHtml}${contentHtml}</div>
                         <span class="message-timestamp">${timeStr}</span>
                     </div>
                 `;
