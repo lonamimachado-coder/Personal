@@ -2696,9 +2696,10 @@
                 return this._userDoc().collection("meta").doc("settings");
             },
 
-            // Cumulative token usage doc for this account (input + output tokens combined),
+            // Daily token usage doc for this account (input + output tokens combined),
             // used to silently cap usage of the shared/demo API key. Lives separately from
-            // "settings" so clearing settings never resets it by accident.
+            // "settings" so clearing settings never resets it by accident. Resets every
+            // day by date key, same mechanism as the image usage counter below.
             _usageDoc() {
                 return this._userDoc().collection("meta").doc("usage");
             },
@@ -2706,15 +2707,62 @@
             async getTokenUsage() {
                 const doc = await this._usageDoc().get();
                 if (!doc.exists) return 0;
-                return doc.data().tokensUsed || 0;
+                const data = doc.data();
+                if (data.date !== this._todayKey()) return 0; // distinto día: contador implícito en 0
+                return data.tokensUsed || 0;
             },
 
             async addTokenUsage(tokens) {
                 const amount = Math.round(tokens);
                 if (!amount || amount <= 0) return;
-                await this._usageDoc().set({
-                    tokensUsed: firebase.firestore.FieldValue.increment(amount)
-                }, { merge: true });
+                const today = this._todayKey();
+                const doc = await this._usageDoc().get();
+                if (doc.exists && doc.data().date === today) {
+                    await this._usageDoc().set({
+                        tokensUsed: firebase.firestore.FieldValue.increment(amount)
+                    }, { merge: true });
+                } else {
+                    // Primer uso del día (o primer uso de siempre): arranca el contador en amount.
+                    await this._usageDoc().set({ date: today, tokensUsed: amount });
+                }
+            },
+
+            // Small helper: a stable "YYYY-MM-DD" key for the user's local day, used to
+            // reset the image generation counter naturally (a new day = a new key, no
+            // cron job or scheduled reset needed).
+            _todayKey() {
+                const d = new Date();
+                const mm = String(d.getMonth() + 1).padStart(2, "0");
+                const dd = String(d.getDate()).padStart(2, "0");
+                return `${d.getFullYear()}-${mm}-${dd}`;
+            },
+
+            // Daily image generation counter for this account (only relevant while using
+            // the shared/demo API key). Lives in its own doc, separate from token usage,
+            // since it resets every day instead of accumulating forever.
+            _imageUsageDoc() {
+                return this._userDoc().collection("meta").doc("imageUsage");
+            },
+
+            async getImageUsageToday() {
+                const doc = await this._imageUsageDoc().get();
+                if (!doc.exists) return 0;
+                const data = doc.data();
+                if (data.date !== this._todayKey()) return 0; // distinto día: contador implícito en 0
+                return data.count || 0;
+            },
+
+            async addImageUsage() {
+                const today = this._todayKey();
+                const doc = await this._imageUsageDoc().get();
+                if (doc.exists && doc.data().date === today) {
+                    await this._imageUsageDoc().set({
+                        count: firebase.firestore.FieldValue.increment(1)
+                    }, { merge: true });
+                } else {
+                    // Primer uso del día (o primer uso de siempre): arranca el contador en 1.
+                    await this._imageUsageDoc().set({ date: today, count: 1 });
+                }
             },
 
             async saveChat(chat) {
@@ -2808,7 +2856,15 @@
             // API key, so a single account can't drain it. Never surfaced as a visible counter —
             // only enforced quietly when it's actually reached. Doesn't apply to a user's own
             // (custom) API key, since that's billed directly to them, not to the shared demo key.
-            TOKEN_LIMIT: 200000,
+            // Máximo de tokens (entrada + salida) por día, por cuenta, solo aplica cuando
+            // se usa la API key compartida/demo. Se resetea solo por fecha (ver
+            // VesperDB._todayKey), igual que IMAGE_DAILY_LIMIT.
+            TOKEN_LIMIT: 100000,
+
+            // Máximo de imágenes generadas por día (por cuenta), solo aplica cuando se
+            // usa la API key compartida/demo. Se resetea solo, porque el contador en
+            // Firestore está atado a la fecha del día (ver VesperDB._todayKey).
+            IMAGE_DAILY_LIMIT: 2,
             systemPrompt: `Tu nombre oficial es Vesper. Eres un asistente de inteligencia artificial moderno, sofisticado, amable, cercano y profesional.
 Cuando el usuario te pregunte cómo te llamas, responde que te llamas Vesper.
 
@@ -3183,7 +3239,7 @@ El campo "prompt" debe estar SIEMPRE en inglés (sin importar el idioma en el qu
                 if (willResearch && onStatusChange) onStatusChange("idle");
 
                 if (usingDefaultKey && usedSoFar >= this.TOKEN_LIMIT) {
-                    const limitErr = new Error("Por ahora alcanzaste el límite de uso incluido en el modo gratuito de Vesper. Probá de nuevo más tarde.");
+                    const limitErr = new Error("Alcanzaste el límite de uso diario incluido en el modo gratuito de Vesper. Probá de nuevo mañana.");
                     limitErr.vesperLimitReached = true;
                     throw limitErr;
                 }
@@ -5612,6 +5668,18 @@ Task: List ONLY genuinely NEW durable facts about the user worth remembering lon
                 });
             },
 
+            // Igual que _renderImageError, pero sin botón de "Reintentar": el límite diario
+            // no se resuelve reintentando, solo esperando al día siguiente (el contador en
+            // Firestore se resetea solo por fecha, ver VesperDB._todayKey).
+            _renderImageLimitReached(wrapper) {
+                wrapper.className = 'image-widget image-widget-error';
+                wrapper.innerHTML = `
+                    <i data-lucide="image-off"></i>
+                    <div class="image-widget-status">Alcanzaste el límite de ${this.IMAGE_DAILY_LIMIT} imágenes generadas por día en el modo gratuito de Vesper. Probá de nuevo mañana.</div>
+                `;
+                lucide.createIcons();
+            },
+
             // Firestore rejects documents/fields over ~1MB ("invalid nested entity" is the
             // generic error the SDK throws for this), and a raw base64 image from the
             // generation model can easily be several MB. This re-encodes the image as a
@@ -5664,10 +5732,32 @@ Task: List ONLY genuinely NEW durable facts about the user worth remembering lon
             },
 
             async _runImageGeneration(imageKey, prompt, wrapper, msg, index) {
+                const usingDefaultKey = localStorage.getItem("vesper_key_source") !== "custom";
+
+                if (usingDefaultKey) {
+                    let usedToday = 0;
+                    try {
+                        usedToday = await VesperDB.getImageUsageToday();
+                    } catch (e) {
+                        console.warn("No se pudo verificar el límite diario de imágenes:", e);
+                    }
+                    if (usedToday >= this.IMAGE_DAILY_LIMIT) {
+                        this._imageStates[imageKey] = { loading: false, url: null, error: true };
+                        if (wrapper.isConnected) {
+                            this._renderImageLimitReached(wrapper);
+                        }
+                        return;
+                    }
+                }
+
                 try {
                     if (!this.activeApiKey) throw new Error("No hay una API Key configurada.");
                     const url = await VesperAPI.generateImage(this.activeApiKey, prompt);
                     this._imageStates[imageKey] = { loading: false, url };
+
+                    if (usingDefaultKey) {
+                        VesperDB.addImageUsage().catch(e => console.warn("No se pudo registrar el uso de imágenes:", e));
+                    }
 
                     // Persist onto the message so a reload shows this same image instead of
                     // generating (and paying for) a new one. Written as an isolated field
