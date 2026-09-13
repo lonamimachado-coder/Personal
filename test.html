@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>MIC TEST</title></head><body>
+<div id="out" style="font-family:monospace;font-size:24px;margin:50px;color:#fff;background:#000;padding:20px">
+Test de Micrófono
+</div>
+<script>
+var out=document.getElementById('out');
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(!SR){out.textContent='NO DISPONIBLE';throw 'no SR'}
+out.textContent='API OK. Iniciando...';
+var rec=new SR();
+rec.continuous=true;
+rec.interimResults=true;
+rec.lang='es-ES';
+rec.onstart=function(){out.textContent='ESCUCHANDO... habla ahora'};
+rec.onresult=function(e){
+  var txt='';
+  for(var i=0;i<e.results.length;i++){
+    txt+=e.results[i][0].transcript+' (final:'+e.results[i].isFinal+')\n';
+  }
+  out.textContent='RESULTADOS:\n'+txt;
+};
+rec.onerror=function(e){out.textContent='ERROR: '+e.error};
+rec.onend=function(){out.textContent+=' (reiniciando...)';try{rec.start()}catch(x){}};
+rec.start();
+</script>
+</body></html>
